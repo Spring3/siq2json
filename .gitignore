@@ -1,2 +1,4 @@
 node_modules
 temp
+*.siq
+.DS_Store
