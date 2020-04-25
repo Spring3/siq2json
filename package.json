@@ -22,9 +22,12 @@
   "homepage": "https://github.com/Spring3/siq-to-zip#readme",
   "dependencies": {
     "chalk": "^4.0.0",
+    "iconv-lite": "^0.5.1",
     "unzipper": "^0.10.11",
     "webpack": "^4.43.0",
     "webpack-cli": "^3.3.11",
+    "xml2js": "^0.4.23",
     "yargs": "^15.3.1"
-  }
+  },
+  "devDependencies": {}
 }
