@@ -68,9 +68,37 @@ unzip(zipFilePath)
     return xml2js.parseStringPromise(xml);
   })
   .then(({ package }) => {
-    const { $, info, rules } = package;
-    console.log('$', $);
-    console.log('info', JSON.stringify(info, null, 2));
+    const { $, info, rounds } = package;
+    const authorsInfo = info.find(entry => !!entry.authors);
+    const authors = authorsInfo
+      ? authorsInfo.authors.reduce((acc, obj) => [...acc, ...obj.author], [])
+      : [];
+    const gameRounds = rounds[0].round.map((round) => {
+      return {
+        name: round.$.name,
+        themes: round.themes[0].theme.map((theme) => {
+          return {
+            name: theme.$.name,
+            questions: theme.questions
+          }
+        })
+      }
+    });
+    const json = {
+      id: $.id,
+      name: $.name,
+      rounds: gameRounds,
+      metadata: {
+        version: $.version,
+        createdBy: authors,
+        createdAt: $.date
+      }
+    };
+    fs.writeFileSync(path.join(unzippedFolder, `${filename}.json`), JSON.stringify(package, null, 2));
+    console.log(rounds[0].round);
+    // console.log('package', JSON.stringify(package));
+    console.log('result', JSON.stringify(json, null, 2));
+    console.log(gameRounds[0].themes[0].questions[0]);
   })
   .catch((error) => {
     console.error(chalk.yellow('Failed to parse the file: ', error.message));
