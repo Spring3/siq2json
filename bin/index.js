@@ -29,8 +29,9 @@ if (extension !== '.siq') {
 }
 
 const zipFilePath = path.resolve(process.cwd(), options.src);
-const filename = path.basename(options.src).replace(extension, '-temp');
-const unzippedFolder = path.resolve(process.cwd(), filename);
+const filename = path.basename(options.src).replace(extension, '');
+const folderName = `${filename}-temp`;
+const unzippedFolder = path.join(path.dirname(zipFilePath), folderName);
 const rootXml = path.normalize(`${unzippedFolder}/content.xml`);
 
 const unzip = (zipFilePath) => {

@@ -3,3 +3,4 @@ temp
 *.siq
 .DS_Store
 *-temp
+packages
