@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "outDir": "./dist/",
+    "allowJs": false,
+    "sourceMap": true,
+    "strictNullChecks": true,
+    "module": "commonjs",
+    "target": "es2018",
+    "moduleResolution": "node",
+    "pretty": true,
+    "allowUnreachableCode": false,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "lib": [
+      "ES6", "ESNext"
+    ],
+    "typeRoots": [
+      "./node_modules/@types/",
+      "./typings"
+    ]
+  },
+  "include": [
+    "./bin/*.ts"
+  ]
+}

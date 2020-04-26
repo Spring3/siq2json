@@ -1,45 +1,50 @@
 #!/usr/bin/env node
 
-const chalk = require('chalk');
-const yargs = require('yargs');
-const fs = require('fs');
-const { promisify } = require('util');
-const path = require('path');
-const unzipper = require('unzipper');
-const xml2js = require('xml2js');
-const il = require('iconv-lite');
+import { Entry, Package } from './types';
+import * as chalk from 'chalk';
+import * as yargs from 'yargs';
+import * as fs from 'fs';
+import { promisify } from 'util';
+import * as path from 'path';
+import * as unzipper from 'unzipper';
+import * as xml2js from 'xml2js';
+import * as il from 'iconv-lite';
 
 const readFilePromise = promisify(fs.readFile);
 
-const options = yargs
-  .usage('Usage -src <path>')
-  .option('src', {
-    alias: 'file',
-    describe: 'Path to the .siq file',
-    type: 'string',
-    demandOption: true
-  })
-  .argv;
+const options = yargs.argv;
 
-const extension = path.extname(options.src);
+let relativePath = options._[0];
+let extension = path.extname(relativePath);
+
+if (!extension) {
+  extension = '.siq';
+  relativePath += extension;
+}
 
 if (extension !== '.siq') {
-  console.error('Unsupported file extension');
+  console.error(chalk.yellow('Unsupported file extension'));
   process.exit(1);
 }
 
-const zipFilePath = path.resolve(process.cwd(), options.src);
-const filename = path.basename(options.src).replace(extension, '');
-const folderName = `${filename}-temp`;
-const unzippedFolder = path.join(path.dirname(zipFilePath), folderName);
-const rootXml = path.normalize(`${unzippedFolder}/content.xml`);
+const zipFilePath = path.resolve(process.cwd(), relativePath) as string;
 
-const unzip = (zipFilePath) => {
+if (!fs.existsSync(zipFilePath)) {
+  console.error(chalk.yellow('Unable to locate file at', zipFilePath));
+  process.exit(1);
+}
+
+const filename = path.basename(relativePath).replace(extension, '') as string;
+const folderName = `${filename}-temp`;
+const unzippedFolder = path.join(path.dirname(zipFilePath), folderName) as string;
+const rootXml = path.normalize(`${unzippedFolder}/content.xml`) as string;
+
+const unzip = (zipFilePath: string) : Promise<void> => {
   return new Promise((resolve, reject) => {
-    const assertedPaths = [];
+    const assertedPaths = [] as string[];
     fs.createReadStream(zipFilePath)
       .pipe(unzipper.Parse())
-      .on('entry', (entry) => {
+      .on('entry', (entry : Entry) => {
         const decodedFileName = decodeURIComponent(
           entry.isUnicode
             ? entry.path
@@ -68,8 +73,9 @@ unzip(zipFilePath)
   .then((xml) => {
     return xml2js.parseStringPromise(xml);
   })
-  .then(({ package }) => {
-    const { $, info, rounds } = package;
+  .then((jsonPackage) => {
+    const { $, info, rounds } = jsonPackage.package as Package;
+
     const authorsInfo = info.find(entry => !!entry.authors);
     const authors = authorsInfo
       ? authorsInfo.authors.reduce((acc, obj) => [...acc, ...obj.author], [])
@@ -95,9 +101,8 @@ unzip(zipFilePath)
         createdAt: $.date
       }
     };
-    fs.writeFileSync(path.join(unzippedFolder, `${filename}.json`), JSON.stringify(package, null, 2));
+    fs.writeFileSync(path.join(unzippedFolder, `${filename}.json`), JSON.stringify(jsonPackage, null, 2));
     console.log(rounds[0].round);
-    // console.log('package', JSON.stringify(package));
     console.log('result', JSON.stringify(json, null, 2));
     console.log(gameRounds[0].themes[0].questions[0]);
   })
