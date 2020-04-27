@@ -33,7 +33,7 @@ interface QuestionParam {
 
 interface QuestionType {
   $: {
-    name: 'auction' | 'bagcat' | 'sponsored'
+    name: 'auction' | 'cat' | 'bagcat' | 'sponsored'
   }
   param: QuestionParam[]
 }
@@ -41,7 +41,7 @@ interface QuestionType {
 interface MediaScenario {
   _: string
   $: {
-    type: 'image' | 'voice'
+    type: 'image' | 'voice' | 'say' | 'marker'
   }
 }
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { Entry, Package } from './types';
+import { Entry, Package, Author, RoundData, ThemeData, QuestionData, Scenario, MediaScenario } from './types';
 import * as chalk from 'chalk';
 import * as yargs from 'yargs';
 import * as fs from 'fs';
@@ -65,6 +65,10 @@ const unzip = (zipFilePath: string) : Promise<void> => {
   });
 };
 
+const unWrap = (array: any[], onEntry: Function) => {
+  return array.reduce((acc, entry) => [...acc, onEntry(entry)], []);
+}
+
 unzip(zipFilePath)
   .then(() => {
     console.log(`Unzipped`);
@@ -78,18 +82,99 @@ unzip(zipFilePath)
 
     const authorsInfo = info.find(entry => !!entry.authors);
     const authors = authorsInfo
-      ? authorsInfo.authors.reduce((acc, obj) => [...acc, ...obj.author], [])
+      ? unWrap(authorsInfo.authors, (obj: Author) => obj.author)
       : [];
-    const gameRounds = rounds[0].round.map((round) => {
+    const gameRounds = unWrap(rounds[0].round, (round: RoundData) => {
       return {
         name: round.$.name,
-        themes: round.themes[0].theme.map((theme) => {
+        themes: unWrap(round.themes[0].theme, (theme: ThemeData) => {
           return {
             name: theme.$.name,
-            questions: theme.questions
-          }
+            questions: unWrap(theme.questions[0].question, (question: QuestionData) => {
+              const q = {
+                points: parseInt(question.$.price, 10),
+                mode: 'default',
+                type: 'plain',
+                answers: question.right[0].answer,
+                task: {
+                  text: '',
+                  images: [] as string[],
+                  sounds: [] as string[]
+                },
+                explanation: ''
+              };
+
+              if (question.info) {
+                q.explanation = question.info[0].comments[0];
+              }
+
+              if (question.type) {
+                const typeName = question.type[0].$.name;
+                switch(typeName) {
+                  case 'cat':
+                  case 'bagcat':
+                    q.mode = 'delegate'
+                    if (Array.isArray(question.type[0].param)) {
+                      for (const param of question.type[0].param) {
+                        switch(param.$.name) {
+                          case 'cost':
+                            q.points = parseInt(param._, 10);
+                            break;
+                          case 'theme':
+                            q.explanation = param._;
+                            break;
+                          default:
+                            break;
+                        }
+                      }
+                    }
+                    break;
+                  default:
+                    q.mode = typeName;
+                }
+              }
+
+              const setQuestionMediaTask = (mediaScenario : MediaScenario) => {
+                switch(mediaScenario.$.type) {
+                  case 'image':
+                    q.task.images.push(mediaScenario._);
+                    break;
+                  case 'voice':
+                    q.task.sounds.push(mediaScenario._);
+                    break;
+                  case 'say':
+                    q.explanation = mediaScenario._;
+                    break;
+                  case 'marker':
+                    break;
+                  default:
+                    console.warn(`Detected unhandled scenario type "${mediaScenario.$.type}. Please open a ticket to support it`);
+                }
+              }
+
+              const scenarioDetails = question.scenario[0].atom;
+              if (scenarioDetails.length === 1 && typeof scenarioDetails[0] === 'string') {
+                q.task.text = scenarioDetails[0];
+              } else {
+                q.type = 'media';
+                if (scenarioDetails.length > 1) {
+                  for (const scenario of scenarioDetails) {
+                    if (typeof scenario === 'string') {
+                      q.task.text = scenario;  
+                    } else {
+                      setQuestionMediaTask(scenario as MediaScenario); 
+                    }
+                  }
+                } else {
+                  setQuestionMediaTask(scenarioDetails[0] as MediaScenario)
+                }
+              }
+
+              return q;
+            })
+          };
         })
-      }
+      };
     });
     const json = {
       id: $.id,
@@ -101,10 +186,10 @@ unzip(zipFilePath)
         createdAt: $.date
       }
     };
-    fs.writeFileSync(path.join(unzippedFolder, `${filename}.json`), JSON.stringify(jsonPackage, null, 2));
-    console.log(rounds[0].round);
-    console.log('result', JSON.stringify(json, null, 2));
-    console.log(gameRounds[0].themes[0].questions[0]);
+    fs.writeFileSync(path.join(unzippedFolder, `${filename}-original.json`), JSON.stringify(jsonPackage, null, 2));
+    console.log(`Created ${filename}-original.json`);
+    fs.writeFileSync(path.join(unzippedFolder, `${filename}-converted.json`), JSON.stringify(json, null, 2));
+    console.log(`Created ${filename}-converted.json`);
   })
   .catch((error) => {
     console.error(chalk.yellow('Failed to parse the file: ', error.message));
