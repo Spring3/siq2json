@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { Entry, Package, Author, RoundData, ThemeData, QuestionData, Scenario, MediaScenario } from './types';
+import { Entry, Package, SIGame, Round } from './types';
 import * as chalk from 'chalk';
 import * as yargs from 'yargs';
 import * as fs from 'fs';
@@ -66,7 +66,10 @@ const unzip = (zipFilePath: string) : Promise<void> => {
 };
 
 const unWrap = (array: any[], onEntry: Function) => {
-  return array.reduce((acc, entry) => [...acc, onEntry(entry)], []);
+  return array.reduce((acc, entry) => {
+    const retrievedEntry = onEntry(entry);
+    return Array.isArray(retrievedEntry) ? acc.concat(retrievedEntry) : [...acc, entry];
+  }, []);
 }
 
 unzip(zipFilePath)
@@ -78,19 +81,19 @@ unzip(zipFilePath)
     return xml2js.parseStringPromise(xml);
   })
   .then((jsonPackage) => {
-    const { $, info, rounds } = jsonPackage.package as Package;
+    const { $, info, rounds } = jsonPackage.package as SIGame.Package;
 
     const authorsInfo = info.find(entry => !!entry.authors);
     const authors = authorsInfo
-      ? unWrap(authorsInfo.authors, (obj: Author) => obj.author)
+      ? unWrap(authorsInfo.authors, (obj: SIGame.Author) => obj.author)
       : [];
-    const gameRounds = unWrap(rounds[0].round, (round: RoundData) => {
+    const gameRounds = unWrap(rounds[0].round, (round: SIGame.RoundData) => {
       return {
         name: round.$.name,
-        themes: unWrap(round.themes[0].theme, (theme: ThemeData) => {
+        themes: unWrap(round.themes[0].theme, (theme: SIGame.ThemeData) => {
           return {
             name: theme.$.name,
-            questions: unWrap(theme.questions[0].question, (question: QuestionData) => {
+            questions: unWrap(theme.questions[0].question, (question: SIGame.QuestionData) => {
               const q = {
                 points: parseInt(question.$.price, 10),
                 mode: 'default',
@@ -134,7 +137,7 @@ unzip(zipFilePath)
                 }
               }
 
-              const setQuestionMediaTask = (mediaScenario : MediaScenario) => {
+              const setQuestionMediaTask = (mediaScenario : SIGame.MediaScenario) => {
                 switch(mediaScenario.$.type) {
                   case 'image':
                     q.task.images.push(mediaScenario._);
@@ -162,11 +165,11 @@ unzip(zipFilePath)
                     if (typeof scenario === 'string') {
                       q.task.text = scenario;  
                     } else {
-                      setQuestionMediaTask(scenario as MediaScenario); 
+                      setQuestionMediaTask(scenario as SIGame.MediaScenario); 
                     }
                   }
                 } else {
-                  setQuestionMediaTask(scenarioDetails[0] as MediaScenario)
+                  setQuestionMediaTask(scenarioDetails[0] as SIGame.MediaScenario)
                 }
               }
 
@@ -175,7 +178,8 @@ unzip(zipFilePath)
           };
         })
       };
-    });
+    }) as Round[];
+
     const json = {
       id: $.id,
       name: $.name,
@@ -183,9 +187,11 @@ unzip(zipFilePath)
       metadata: {
         version: $.version,
         createdBy: authors,
+        difficulty: $.difficulty,
+        restriction: $.restriction,
         createdAt: $.date
       }
-    };
+    } as Package;
     fs.writeFileSync(path.join(unzippedFolder, `${filename}-original.json`), JSON.stringify(jsonPackage, null, 2));
     console.log(`Created ${filename}-original.json`);
     fs.writeFileSync(path.join(unzippedFolder, `${filename}-converted.json`), JSON.stringify(json, null, 2));
