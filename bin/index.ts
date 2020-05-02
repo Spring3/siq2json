@@ -34,10 +34,12 @@ if (!fs.existsSync(zipFilePath)) {
   process.exit(1);
 }
 
-const filename = path.basename(relativePath).replace(extension, '') as string;
+const filename = path.basename(relativePath).replace(extension, '');
 const folderName = `${filename}-temp`;
-const unzippedFolder = path.join(path.dirname(zipFilePath), folderName) as string;
-const rootXml = path.normalize(`${unzippedFolder}/content.xml`) as string;
+const unzippedFolder = path.join(path.dirname(zipFilePath), folderName);
+const audioFolder = path.join(unzippedFolder, '/Audio/');
+const imagesFolder = path.join(unzippedFolder, '/Images/');
+const rootXml = path.normalize(`${unzippedFolder}/content.xml`);
 
 const unzip = (zipFilePath: string) : Promise<void> => {
   return new Promise((resolve, reject) => {
@@ -68,7 +70,7 @@ const unzip = (zipFilePath: string) : Promise<void> => {
 const unWrap = (array: any[], onEntry: Function) => {
   return array.reduce((acc, entry) => {
     const retrievedEntry = onEntry(entry);
-    return Array.isArray(retrievedEntry) ? acc.concat(retrievedEntry) : [...acc, entry];
+    return Array.isArray(retrievedEntry) ? acc.concat(retrievedEntry) : [...acc, retrievedEntry];
   }, []);
 }
 
@@ -196,7 +198,63 @@ unzip(zipFilePath)
     console.log(`Created ${filename}-original.json`);
     fs.writeFileSync(path.join(unzippedFolder, `${filename}-converted.json`), JSON.stringify(json, null, 2));
     console.log(`Created ${filename}-converted.json`);
+    return json;
+  })
+  .then((json: Package) => {
+    const webpackConfig = {
+      mode: 'production',
+      entry: [] as string[],
+      output: {
+        path: path.resolve(unzippedFolder, '../', folderName),
+        filename: '[name].[ext]'
+      },
+      module: {
+        rules: [
+          {
+            test: /\.(jpe?g|png|gif)$/,
+            loader: 'url-loader',
+            options: {
+              limit: 10 * 1024 // <= 10kB
+            }
+          },
+          {
+            test: /\.svg$/,
+            loader: 'svg-url-loader',
+            options: {
+              limit: 10 * 1024,
+              noquotes: true
+            }
+          },
+          {
+            test: /\.(jpe?g|png|gif|svg)$/,
+            loader: 'image-wepback-loader',
+            enforce: 'pre'
+          }
+        ]
+      }
+    }
+    for (const round of json.rounds) {
+      for (const theme of round.themes) {
+        console.log('theme.questions', theme);
+        for (const question of theme.questions) {
+          if (question.type === 'media') {
+            webpackConfig.entry = [
+              ...webpackConfig.entry,
+              ...(question.task.sounds || []).map((filePath) => {
+                return path.resolve(audioFolder, filePath.replace('@', './'));
+              }),
+              ...(question.task.images || []).map((filePath) => {
+                return path.resolve(imagesFolder, filePath.replace('@', './'));
+              })
+            ]
+          }
+        }
+      }
+    }
+
+    console.log(webpackConfig.entry);
   })
   .catch((error) => {
+    console.error(error);
     console.error(chalk.yellow('Failed to parse the file: ', error.message));
   });
