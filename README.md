@@ -14,3 +14,5 @@ siq <path/to/file.siq>
 ```
 
 This will create a `file-json.zip` file in the same directory as the original package file.
+
+For the structure of a json, refer to bin/index.d.ts file
