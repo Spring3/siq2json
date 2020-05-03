@@ -1,6 +1,6 @@
 {
   "name": "siq2json",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "",
   "main": "dist/index.js",
   "scripts": {
@@ -31,7 +31,6 @@
     "imagemin-pngquant": "^8.0.0",
     "imagemin-svgo": "^7.1.0",
     "rimraf": "^3.0.2",
-    "svg-url-loader": "^5.0.0",
     "unzipper": "^0.10.11",
     "xml2js": "^0.4.23",
     "yargs": "^15.3.1"
